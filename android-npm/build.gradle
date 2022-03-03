@@ -31,23 +31,24 @@ abstract class replaceSoTask extends DefaultTask {
 def getCurrentFlavor() {
     Gradle gradle = getGradle()
     String taskRequestName = gradle.getStartParameter().getTaskRequests().toString()
-    Pattern pattern = Pattern.compile("(assemble|bundle|install|generate)(\\w*)(Release|Debug)")
+    Pattern pattern = Pattern.compile("(assemble|bundle|install|generate)(\\w*)")
     Matcher matcher = pattern.matcher(taskRequestName)
 
     if(matcher.find()) {
+        project.logger.lifecycle('FOUND!')
+        project.logger.lifecycle(matcher.group(2))
         return matcher.group(2)
     }
+
+    project.logger.lifecycle('NOT-FOUND')
 
     return "NOT-FOUND"
 }
 
-def replaceSoTaskDebug
-def replaceSoTaskRelease
+def replaceSoTask
 if(Integer.parseInt(minor) < 65) {
-    tasks.register("replaceSoTaskDebug", replaceSoTask)
-    tasks.register("replaceSoTaskRelease", replaceSoTask)
-    replaceSoTaskDebug = project.getTasks().getByPath(":react-native-reanimated:replaceSoTaskDebug")
-    replaceSoTaskRelease = project.getTasks().getByPath(":react-native-reanimated:replaceSoTaskRelease")
+    tasks.register("replaceSoTask", ReplaceSoTask)
+    replaceSoTask = project.getTasks().getByPath(":react-native-reanimated:replaceSoTask")
 }
 
 rootProject.getSubprojects().forEach({project ->
@@ -67,17 +68,11 @@ rootProject.getSubprojects().forEach({project ->
                 replaceSoTask.buildDir = project.getProperties().buildDir
                 def appName = project.getProperties().path
 
-                replaceSoTaskDebug.dependsOn(
-                        project.getTasks().getByPath("${appName}:merge${flavorString}DebugNativeLibs"),
-                        project.getTasks().getByPath("${appName}:strip${flavorString}DebugDebugSymbols")
+                replaceSoTask.dependsOn(
+                        project.getTasks().getByPath("${appName}:merge${flavorString}NativeLibs"),
+                        project.getTasks().getByPath("${appName}:strip${flavorString}DebugSymbols")
                 )
-                project.getTasks().getByPath("${appName}:package${flavorString}Debug").dependsOn(replaceSoTaskDebug)
-
-                replaceSoTaskRelease.dependsOn(
-                        project.getTasks().getByPath("${appName}:merge${flavorString}ReleaseNativeLibs"),
-                        project.getTasks().getByPath("${appName}:strip${flavorString}ReleaseDebugSymbols")
-                )
-                project.getTasks().getByPath("${appName}:package${flavorString}Release").dependsOn(replaceSoTaskRelease)
+                project.getTasks().getByPath("${appName}:package${flavorString}").dependsOn(replaceSoTask)
             }
         }
     }
